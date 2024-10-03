@@ -1,52 +1,77 @@
 <template>
-    <div class="center">
-        <div class="navbar">
-            <button @click="logout" class="logout-button">Cerrar Sesión</button>
-        </div>
-        <div class="dashboard">
-            <div class="sidebar">
-                <div class="sidebar-header">
-                    <h2>Mis Notas</h2>
-                    <button @click="showModal = true" class="create-note-button">Nueva Nota</button>
-                </div>
-                <ul>
-                    <li v-for="note in notes" :key="note.id" class="note-item" @click="selectNote(note)">
-                        <span class="note-title">
-                            {{ note.title }}
-                        </span>
-                        <button @click.stop="deleteNote(note.id)" class="delete-note-button">Eliminar</button>
-                        <!-- Modificador .stop para evitar que el clic en el botón dispare el evento en el <li> -->
-                    </li>
-                </ul>
+
+    <body>
+        <div class="center">
+            <div class="navbar">
+                <button @click="logout" class="logout-button">Cerrar Sesión</button>
             </div>
-            <div class="main-content">
-                <div v-if="selectedNote">
-                    <h2>{{ selectedNote.title }}</h2>
-                    <p>{{ selectedNote.description }}</p>
+            <div class="dashboard">
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <h2>Mis Notas</h2>
+                        <div class="sort-options">
+                            <label for="sortCriteria">Ordenar por:</label>
+                            <select v-model="sortCriteria" @change="sortNotes">
+                                <option value="dueDate">Fecha de Vencimiento</option>
+                                <option value="createdDate">Fecha de Creación</option>
+                            </select>
+                        </div>
+                        <button @click="showCreateNoteModal = true" class="create-note-button">Nueva Nota</button>
+                    </div>
+                    <ul>
+                        <li v-for="note in notes" :key="note.id" class="note-item" @click="selectNote(note)">
+                            <span class="note-title">
+                                {{ note.title }}
+                            </span>
+                            <div class="note-actions">
+                                <button @click.stop="editNote(note)" class="edit-note-button">Editar</button>
+                                <button @click.stop="deleteNote(note.id)" class="delete-note-button">Eliminar</button>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
-                <p v-else>No has seleccionado ninguna nota.</p>
+                <div class="main-content">
+                    <div v-if="selectedNote">
+                        <h2 class="note-title">{{ selectedNote.title }}</h2>
+                        <div class="note-description">
+                            <p v-if="selectedNote.fecha_vencimiento">Fecha de vencimiento: {{
+                                selectedNote.fecha_vencimiento }}</p>
+                            <p>Etiquetas: {{ selectedNote.etiquetas }}</p>
+                            <p>{{ selectedNote.description }}</p>
+                        </div>
+                        <img v-if="selectedNote.img_uri" :src="selectedNote.img_uri" alt="Imagen de la nota"
+                            class="note-image">
+                    </div>
+                </div>
             </div>
+            <!-- Modal para crear una nueva nota -->
+            <CreateNoteModal v-if="showCreateNoteModal" @close="showCreateNoteModal = false"
+                @createNote="handleCreateNote" />
+            <!-- Modal para editar una nueva nota -->
+            <EditNoteModal v-if="showEditNoteModal" :existingNote="selectedNote" @close="showEditNoteModal = false"
+                @editNote="handleEditNote" />
         </div>
-        <!-- Modal para crear una nueva nota -->
-        <CreateNoteModal v-if="showModal" :note="newNote" @createNote="handleCreateNote"
-            @closeModal="showModal = false" />
-    </div>
+    </body>
 </template>
 
 <script>
 import { logout } from '../api/auth';
 import { searchNotes, deleteNote } from '../api/note';
-import CreateNoteModal from './CreateNoteModal.vue'; // Importar el componente modal
+import CreateNoteModal from './modal/CreateNoteModal.vue'; // Importar el componente modal
+import EditNoteModal from './modal/EditNoteModal.vue';
 
 export default {
     components: {
         CreateNoteModal,
+        EditNoteModal,
     },
     data() {
         return {
-            showModal: false, // Controla si el modal está visible
+            showCreateNoteModal: false,
+            showEditNoteModal: false, // Controla si el modal está visible
             notes: [], // Lista de notas
             selectedNote: null, // Nota seleccionada
+            sortCriteria: 'createdDate', //método de ordenamiento
             newNote: {
                 title: '',
                 description: '',
@@ -59,7 +84,7 @@ export default {
     methods: {
         async fetchNotes() {
             try {
-                const response = await searchNotes();
+                const response = await searchNotes(); //llama la función para hacer la busqueda de las notas cada que un usuario se logea
                 this.notes = response;
             } catch (error) {
                 this.error = 'Search error. Please try again.';
@@ -70,173 +95,271 @@ export default {
         },
         async logout() {
             try {
-                const response = await logout();
+                const response = await logout(); //LLama la función de logout y elimina los tokens de acceso de la base de datos
                 this.$router.push('/'); // Redirige a al login
             } catch (error) {
                 this.error = 'Logout error. Please try again.';
             }
         },
+        editNote(note) {
+            // Lógica para iniciar el proceso de edición
+            this.selectedNote = note; // Selecciona la nota a editar
+            this.showEditNoteModal = true; // Muestra el modal
+        },
+        handleEditNote(updatedNote) {
+            // Encuentra el índice de la nota modificada
+            const noteIndex = this.notes.findIndex(note => note.id === updatedNote.id);
+            if (noteIndex !== -1) {
+                // Reemplaza la nota en la lista con la nota actualizada
+                this.notes[noteIndex] = updatedNote;
+                // Si la nota actual es la que está seleccionada, actualiza también esa
+                if (this.selectedNote && this.selectedNote.id === updatedNote.id) {
+                    this.selectedNote = updatedNote;
+                }
+                this.sortNotes();
+            } else {
+                console.error("Nota no encontrada para actualización:", updatedNote.id);
+            }
+        },
         async deleteNote(noteId) {
             try {
-                console.log(noteId);
-                console.log(this.notes);
+                // Llamar a la API para eliminar la nota
                 const response = await deleteNote(noteId);
-                this.fetchNotes();
+
+                // Eliminar la nota del arreglo de notas actual sin volver a consultar
+                this.notes = this.notes.filter(note => note.id !== noteId);
+
+                // Limpiar la nota seleccionada si la que se eliminó es la seleccionada actualmente
+                if (this.selectedNote && this.selectedNote.id === noteId) {
+                    this.selectedNote = null;
+                }
+                this.sortNotes();
             } catch (error) {
                 this.error = 'Delete error. Please try again.';
             }
         },
         handleCreateNote(newNote) {
             // Lógica para agregar la nueva nota a la lista 
-            console.log(newNote);
-            this.notes.push( newNote );
-            this.showModal = false;
+            this.notes.push(newNote);
+            this.showCreateNoteModal = false;
+            this.sortNotes();
 
         },
+        sortNotes() {
+            if (this.sortCriteria === 'dueDate') {
+                this.notes.sort((a, b) => new Date(a.fecha_vencimiento) - new Date(b.fecha_vencimiento));
+            } else if (this.sortCriteria === 'createdDate') {
+                this.notes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            }
+        },
+        // Método que se llamará al cambiar el criterio de ordenación
+        updateSortCriteria(criteria) {
+            this.sortCriteria = criteria;
+            this.sortNotes();
+        }
     },
     mounted() {
         this.fetchNotes();
+        this.sortNotes();
     },
 };
 </script>
 
 <style scoped>
+body {
+    height: 100vh;
+    align-content: center;
+    background-color: #F1FFE7;
+    margin: -10px;
+}
+
 .center {
     display: flex;
-    /* Usa flexbox para centrar */
     flex-direction: column;
-    /* Cambia la dirección a columna */
-    justify-content: flex-start;
-    /* Alinea los elementos al inicio */
+    justify-content: center;
     align-items: center;
-    /* Centra horizontalmente */
-    height: 100vh;
-    /* Altura total de la ventana */
+    background-color: #F1FFE7;
+    /* Pastel lilac */
 }
 
 .navbar {
     width: 90%;
-    /* Ocupa el ancho completo */
-    padding: 20px;
-    /* Espaciado interno */
-    background-color: #90caf9;
-    /* Color de fondo de la navbar */
     display: flex;
     justify-content: flex-end;
-    /* Alinea el botón a la derecha */
+    padding: 1rem;
+    margin: 1rem;
     border-radius: 8px;
+    background-color: #79BD9A;
+    box-shadow: 1.5px 1.5px 3px rgba(0, 0, 0, 0.1);
 }
 
 .logout-button {
-    padding: 10px 15px;
+    background-color: #D9534F;
+    /* Light coral */
     border: none;
-    border-radius: 8px;
-    background-color: #ef5350;
-    /* Color del botón de logout */
-    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
 .logout-button:hover {
-    background-color: #e53935;
-    /* Color al pasar el mouse sobre el botón */
+    background-color: #FFB6B6;
+    /* Slightly darker coral */
 }
 
 .dashboard {
     display: flex;
-    /* Mantiene el diseño de dos columnas */
-    justify-content: space-between;
-    /* Alinea las columnas */
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    background-color: #f7f7f7;
     width: 90%;
-    /* Color de fondo */
-    margin-top: 20px;
-    /* Espacio entre la navbar y el dashboard */
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 .sidebar {
-    flex: 1;
-    /* Proporción 1 */
+    width: 30%;
+    background-color: #A8DBA8;
+    /* Light turquoise */
+    padding: 1rem;
     margin-right: 20px;
-    /* Espacio entre las columnas */
-    border-radius: 12px;
-    background-color: #e3f2fd;
-    /* Color de fondo lateral */
-    padding: 10px;
-    overflow-y: auto;
-    /* Agregar scroll si es necesario */
+    border-radius: 10px;
 }
 
 .sidebar-header {
     display: flex;
-    /* Usa flexbox para alinear el título y el botón */
-    justify-content: space-between;
-    /* Alinea los elementos a los extremos */
-    align-items: center;
-    /* Centra verticalmente los elementos */
-
-    padding-left: 25px;
-}
-
-.main-content {
-    flex: 2;
-    /* Proporción 2 */
-    border-radius: 12px;
-    background-color: #ffe0b2;
-    /* Color de fondo principal */
-    padding: 10px;
-    overflow-y: auto;
-    /* Agregar scroll si es necesario */
-}
-
-.note-item {
-    display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
-    margin: 5px 0;
-    background-color: #bbdefb;
-    /* Color de fondo para notas */
-}
-
-.note-item:hover {
-    background-color: #90caf9;
-    /* Color al pasar el mouse */
-}
-
-.delete-note-button {
-
-    background-color: #ef5350;
-    border: none;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.delete-note-button:hover {
-    background-color: #e53935;
+    margin-bottom: 1rem;
 }
 
 .create-note-button {
-    margin-left: 10px;
-    /* Espacio entre el título y el botón */
-    padding: 5px 10px;
+    background-color: #BAFF29;
+    /* Soft pink */
     border: none;
-    border-radius: 4px;
-    background-color: #4caf50;
-    /* Color del botón de nueva nota */
-    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
 .create-note-button:hover {
-    background-color: #388e3c;
-    /* Color al pasar el mouse sobre el botón de nueva nota */
+    background-color: #e5ffac;
 }
+
+ul {
+    margin-left: -40px;
+}
+
+.note-item {
+    background-color: #CFF09E;
+    /* Pastel yellow */
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.note-item:hover {
+    background-color: #FFE4B2;
+    /* Slightly darker yellow */
+}
+
+.note-actions button {
+    margin-left: 0.5rem;
+    /* Light pastel red */
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.main-content {
+    width: 70%;
+    padding: 2rem;
+    border-radius: 10px;
+    background-color: #A8DBA8;
+    /* Soft pastel green */
+    display: flex;
+    flex-direction: column;
+}
+
+.note-title {
+    font-size: 2rem;
+    font-weight: bold;
+    text-align: center;
+    align-self: center;
+    /* Centers the content horizontally */
+}
+
+.note-description {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    /* Adds a subtle shadow */
+    text-align: justify;
+}
+
+.note-image {
+    width: 100%;
+    border-radius: 5px;
+    margin-top: 1rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    /* Ensures the image is centered */
+}
+
+
+.delete-note-button {
+    background-color: #D64550;
+}
+
+.note-actions .delete-note-button:hover {
+    background-color: #df9096;
+    /* Darker pastel red */
+}
+
+.edit-note-button {
+    background-color: #0C7489;
+}
+
+.note-actions .edit-note-button:hover {
+    background-color: #5faab9;
+    /* Darker pastel red */
+}
+
+/* Estilo para la sección de opciones de ordenamiento */
+.sort-options {
+    display: flex;
+    align-items: center; /* Alinea verticalmente los elementos */
+    margin-bottom: 15px; /* Espacio debajo de la sección */
+    padding: 10px; /* Espacio interior */
+    background-color: #BAFF29; /* Color de fondo pastel */
+    border-radius: 8px; /* Bordes redondeados */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra suave */
+}
+
+/* Estilo para la etiqueta del select */
+.sort-options label {
+    margin-right: 10px; /* Espacio a la derecha de la etiqueta */
+    font-weight: bold; /* Negrita */
+    color: #555; /* Color del texto */
+}
+
+/* Estilo para el select de ordenamiento */
+.sort-options select {
+    border: 1px solid #ccc; /* Borde gris claro */
+    border-radius: 5px; /* Bordes redondeados */
+    background-color: #dbfd92; /* Fondo blanco */
+    color: #333; /* Color del texto */
+    transition: border-color 0.2s; /* Transición suave para el borde */
+}
+
 </style>

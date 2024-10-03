@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import Login from './components/Login.vue';
-import Register from './components/Register.vue';
+import Login from './components/login/Login.vue';
+import Register from './components/login/Register.vue';
 import notFound from './components/NotfoundPage.vue';
 import Dashboard from './components/Dashboard.vue';
 

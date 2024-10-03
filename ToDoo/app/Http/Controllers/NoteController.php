@@ -41,8 +41,8 @@ class NoteController extends Controller implements HasMiddleware
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'etiquetas' => 'required|string',
-            'img_uri' => 'nullable|max:255',
-            'fecha_vencimiento' => 'nullable|date|after:today',
+            'img_uri' => 'nullable',
+            'fecha_vencimiento' => 'nullable|date|after:yesterday',
         ]);
 
         // Crea una nueva nota 
@@ -77,8 +77,8 @@ class NoteController extends Controller implements HasMiddleware
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'etiquetas' => 'required|string',
-            'img_uri' => 'nullable|max:255',
-            'fecha_vencimiento' => 'nullable|date|after:today',
+            'img_uri' => 'nullable',
+            'fecha_vencimiento' => 'nullable|date|after:yesterday',
         ]);
 
         // Actualiza los campos de la nota
@@ -102,7 +102,7 @@ class NoteController extends Controller implements HasMiddleware
     {
         Gate::authorize('modify', $note);
         
-        $note->delete();
+        $note->delete(); //Elimina la nota
 
         return ['mensaje' => 'La nota fue eliminada' ];
     }
