@@ -24,46 +24,41 @@ Sigue estos pasos para configurar el proyecto en tu entorno local:
 
 1. Clona el repositorio:
    ```bash
-   git clone <URL_DEL_REPOSITORIO>
+   git clone https://github.com/Sgarcia8/Prueba_ToDo.git
    ```
 
-2. Navega a la carpeta del proyecto:
-   ```bash
-   cd nombre-del-proyecto
-   ```
-
-3. Instala las dependencias de backend:
+2. Instala las dependencias de backend:
    ```bash
    composer install
    ```
 
-4. Configura el archivo `.env`:
+3. Configura el archivo `.env`:
    ```bash
    cp .env.example .env
    ```
    Modifica las configuraciones de base de datos y otras variables necesarias.
 
-5. Genera la clave de la aplicación:
+4. Genera la clave de la aplicación:
    ```bash
    php artisan key:generate
    ```
 
-6. Ejecuta las migraciones:
+5. Ejecuta las migraciones:
    ```bash
    php artisan migrate
    ```
 
-7. Instala las dependencias de frontend:
+6. Instala las dependencias de frontend:
    ```bash
    npm install
    ```
 
-8. Compila los recursos:
+7. Compila los recursos:
    ```bash
    npm run dev
    ```
 
-9. Ejecuta el servidor:
+8. Ejecuta el servidor:
    ```bash
    php artisan serve
    ```
