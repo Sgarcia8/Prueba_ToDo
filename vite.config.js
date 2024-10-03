@@ -12,5 +12,5 @@ export default defineConfig({
         ],
         // Asegúrate de que Vite utilice HTTPS en producción
         base: mode === 'production' ? 'https://pruebatodo-production.up.railway.app/' : '/',
-    ],
+    },
 });
